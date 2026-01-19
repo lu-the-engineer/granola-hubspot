@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Granola Assistant</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Granola Assistant</h1>
+      <p>Process meeting transcripts and sync to HubSpot</p>
+    </header>
+
+    <main>
+      <section id="auth-section" class="card">
+        <h2>Authentication</h2>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" placeholder="Enter password">
+          <button id="auth-btn" class="btn btn-primary">Authenticate</button>
+        </div>
+        <p id="auth-status" class="status"></p>
+      </section>
+
+      <section id="upload-section" class="card hidden">
+        <h2>Upload Transcript</h2>
+        <form id="upload-form">
+          <div class="form-group">
+            <label for="title">Meeting Title (optional)</label>
+            <input type="text" id="title" placeholder="e.g., Discovery Call with Acme Corp">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="date">Meeting Date (optional)</label>
+              <input type="date" id="date">
+            </div>
+            <div class="form-group">
+              <label for="attendees">Attendee Emails (recommended)</label>
+              <input type="text" id="attendees" placeholder="susan@acme.com, john@acme.com">
+              <small class="hint">Comma-separated emails of external attendees to sync to HubSpot</small>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="transcript">Transcript *</label>
+            <textarea id="transcript" rows="12" placeholder="Paste your Granola transcript here..." required></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-lg">Process Transcript</button>
+        </form>
+      </section>
+
+      <section id="results-section" class="card hidden">
+        <h2>Results</h2>
+        <div id="results-content"></div>
+      </section>
+
+      <section id="loading-section" class="card hidden">
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Processing transcript...</p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Granola Assistant &middot; Powered by Claude AI</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
