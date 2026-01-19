@@ -4,13 +4,9 @@ import {
   searchContactByName,
   createContact,
   updateContact,
-  searchDealByName,
-  createDeal,
   addNoteToContact,
-  addNoteToDeal,
   buildNoteFromExtraction,
   getContactUrl,
-  getDealUrl,
 } from './hubspot.js';
 import { logger } from '../utils/logger.js';
 import type { TranscriptPayload, ProcessingResult, ExtractedData, ExtractedContact, HubSpotContactResult } from '../types/index.js';
@@ -108,40 +104,7 @@ export async function processTranscript(payload: TranscriptPayload): Promise<Pro
     }
   }
 
-  // Step 3: Find or create deal in HubSpot
-  let dealId: string | undefined;
-
-  if (extracted.deal.name) {
-    try {
-      const existingDeal = await searchDealByName(extracted.deal.name);
-
-      if (existingDeal) {
-        dealId = existingDeal.id;
-        result.hubspot.deal = {
-          id: existingDeal.id,
-          action: 'found',
-          url: getDealUrl(existingDeal.id),
-        };
-        logger.info('Found existing deal', { id: existingDeal.id });
-      } else {
-        // Associate deal with first contact if available
-        const created = await createDeal(extracted.deal, contactIds[0]);
-        dealId = created.id;
-        result.hubspot.deal = {
-          id: created.id,
-          action: 'created',
-          url: getDealUrl(created.id),
-        };
-        logger.info('Created new deal', { id: created.id });
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown deal error';
-      errors.push(`Deal sync failed: ${message}`);
-      logger.error('Deal sync failed', { error: message });
-    }
-  }
-
-  // Step 4: Add call note to all contacts and deal
+  // Step 3: Add call note to all contacts
   const noteBody = buildNoteFromExtraction(extracted);
 
   for (const contactId of contactIds) {
@@ -155,20 +118,9 @@ export async function processTranscript(payload: TranscriptPayload): Promise<Pro
     }
   }
 
-  if (dealId) {
-    try {
-      await addNoteToDeal(dealId, noteBody);
-      result.hubspot.noteAdded = true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown note error';
-      errors.push(`Failed to add note to deal: ${message}`);
-      logger.error('Failed to add note to deal', { error: message });
-    }
-  }
-
   if (errors.length > 0) {
     result.errors = errors;
-    result.success = contactIds.length > 0 || dealId !== undefined; // Partial success if something was synced
+    result.success = contactIds.length > 0; // Partial success if at least one contact was synced
   }
 
   return result;

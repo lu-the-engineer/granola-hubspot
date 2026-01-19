@@ -302,12 +302,6 @@ export function buildNoteFromExtraction(extracted: ExtractedData): string {
   parts.push('<br>');
   parts.push(`<b>Sentiment:</b> ${extracted.sentiment}`);
 
-  // Deal Notes
-  if (extracted.deal?.notes) {
-    parts.push('<br><br>');
-    parts.push(`<b>Deal Notes:</b> ${extracted.deal.notes}`);
-  }
-
   return parts.join('');
 }
 

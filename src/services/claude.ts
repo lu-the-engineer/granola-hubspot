@@ -21,7 +21,7 @@ ${emailList}
 
 Extract:
 1. Contact information for ALL external attendees (not internal Fourthwall employees). Each contact needs: firstName, lastName, email, phone, company, jobTitle
-2. Deal information (name, stage, amount, closeDate, notes)
+2. Deal information (name, stage, amount, closeDate) - no notes needed
 3. A concise call summary (2-3 sentences)
 4. Action items mentioned during the call
 5. Next steps discussed
@@ -46,8 +46,7 @@ Respond ONLY with valid JSON matching this schema:
     "name": string | null,
     "stage": "discovery" | "qualification" | "proposal" | "negotiation" | "closed_won" | "closed_lost" | null,
     "amount": number | null,
-    "closeDate": string | null,
-    "notes": string | null
+    "closeDate": string | null
   },
   "callSummary": string,
   "actionItems": string[],
