@@ -97,7 +97,41 @@ function showStatus(element, message, type) {
 }
 
 function renderResults(result) {
+  // Handle API error responses
+  if (result.error) {
+    resultsContent.innerHTML = `
+      <div class="error-list">
+        <h4>Error</h4>
+        <p>${escapeHtml(result.error)}: ${escapeHtml(result.message || 'Unknown error')}</p>
+      </div>
+      <div style="margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap;">
+        <button class="btn btn-primary" id="reset-new-btn">
+          Try Again
+        </button>
+      </div>
+    `;
+    document.getElementById('reset-new-btn').addEventListener('click', () => resetForm(false));
+    return;
+  }
+
   const { success, extracted, hubspot, errors } = result;
+
+  // Safety check for missing extracted data
+  if (!extracted) {
+    resultsContent.innerHTML = `
+      <div class="error-list">
+        <h4>Error</h4>
+        <p>No data was extracted from the transcript</p>
+      </div>
+      <div style="margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap;">
+        <button class="btn btn-primary" id="reset-new-btn">
+          Try Again
+        </button>
+      </div>
+    `;
+    document.getElementById('reset-new-btn').addEventListener('click', () => resetForm(false));
+    return;
+  }
 
   let html = '';
 
@@ -239,21 +273,34 @@ function renderResults(result) {
     `;
   }
 
-  // Process another button
+  // Store current attendees for "same emails" option
+  const currentAttendees = document.getElementById('attendees').value;
+
+  // Process another buttons
   html += `
-    <button class="btn btn-primary" style="margin-top: 20px;" onclick="resetForm()">
-      Process Another Transcript
-    </button>
+    <div style="margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap;">
+      <button class="btn btn-primary" id="reset-new-btn">
+        New Transcript
+      </button>
+      <button class="btn btn-secondary" id="reset-same-btn">
+        New Transcript (Same Attendees)
+      </button>
+    </div>
   `;
 
   resultsContent.innerHTML = html;
+
+  // Attach event listeners after rendering
+  document.getElementById('reset-new-btn').addEventListener('click', () => resetForm(false));
+  document.getElementById('reset-same-btn').addEventListener('click', () => resetForm(true));
 }
 
-function resetForm() {
+function resetForm(keepAttendees = false) {
+  const attendeesValue = document.getElementById('attendees').value;
   document.getElementById('transcript').value = '';
   document.getElementById('title').value = '';
   document.getElementById('date').value = '';
-  document.getElementById('attendees').value = '';
+  document.getElementById('attendees').value = keepAttendees ? attendeesValue : '';
   resultsSection.classList.add('hidden');
   uploadSection.classList.remove('hidden');
 }
