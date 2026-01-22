@@ -9,6 +9,7 @@ import { authMiddleware, webhookAuthMiddleware } from './middleware/auth.js';
 import { healthRouter } from './routes/health.js';
 import { webhookRouter } from './routes/webhook.js';
 import { uploadRouter } from './routes/upload.js';
+import { granolaRouter } from './routes/granola.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,6 +39,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.use('/health', healthRouter);
 app.use('/webhook', webhookAuthMiddleware, webhookRouter);
 app.use('/api', authMiddleware, uploadRouter);
+app.use('/api/granola', authMiddleware, granolaRouter);
 
 // Serve frontend for root
 app.get('/', (_req, res) => {

@@ -1,6 +1,6 @@
 # Granola Assistant
 
-AI-powered tool that processes Granola meeting transcripts and syncs extracted data to HubSpot.
+AI-powered tool that processes Granola meeting transcripts, syncs extracted data to HubSpot, and creates follow-up tasks.
 
 ## Project Overview
 

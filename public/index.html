@@ -10,7 +10,7 @@
   <div class="container">
     <header>
       <h1>Granola Assistant</h1>
-      <p>Process meeting transcripts and sync to HubSpot</p>
+      <p>Process meeting transcripts, sync to HubSpot, and create follow-up tasks</p>
     </header>
 
     <main>
@@ -24,8 +24,47 @@
         <p id="auth-status" class="status"></p>
       </section>
 
+      <section id="mode-section" class="card hidden">
+        <h2>Choose Input Method</h2>
+        <div class="mode-buttons">
+          <button id="mode-granola-btn" class="btn btn-primary btn-lg mode-btn">
+            <span class="mode-icon">📋</span>
+            <span class="mode-text">
+              <strong>Select from Granola</strong>
+              <small>Pick a meeting from your Granola notes</small>
+            </span>
+          </button>
+          <button id="mode-paste-btn" class="btn btn-secondary btn-lg mode-btn">
+            <span class="mode-icon">📝</span>
+            <span class="mode-text">
+              <strong>Paste Transcript</strong>
+              <small>Manually paste a transcript</small>
+            </span>
+          </button>
+        </div>
+      </section>
+
+      <section id="granola-section" class="card hidden">
+        <div class="section-header">
+          <h2>Select a Meeting</h2>
+          <button id="back-to-mode-btn" class="btn btn-secondary btn-sm">Back</button>
+        </div>
+        <div id="granola-loading" class="loading">
+          <div class="spinner"></div>
+          <p>Loading meetings from Granola...</p>
+        </div>
+        <div id="granola-error" class="error-box hidden">
+          <p id="granola-error-message"></p>
+          <button id="granola-retry-btn" class="btn btn-secondary">Retry</button>
+        </div>
+        <div id="meetings-list" class="meetings-list hidden"></div>
+      </section>
+
       <section id="upload-section" class="card hidden">
-        <h2>Upload Transcript</h2>
+        <div class="section-header">
+          <h2>Upload Transcript</h2>
+          <button id="back-to-mode-btn-2" class="btn btn-secondary btn-sm">Back</button>
+        </div>
         <form id="upload-form">
           <div class="form-group">
             <label for="title">Meeting Title (optional)</label>
@@ -51,6 +90,15 @@
 
           <button type="submit" class="btn btn-primary btn-lg">Process Transcript</button>
         </form>
+      </section>
+
+      <section id="confirm-section" class="card hidden">
+        <h2>Confirm Meeting Details</h2>
+        <div id="confirm-details" class="confirm-details"></div>
+        <div class="confirm-actions">
+          <button id="confirm-process-btn" class="btn btn-primary btn-lg">Process & Sync to HubSpot</button>
+          <button id="confirm-back-btn" class="btn btn-secondary">Back to Selection</button>
+        </div>
       </section>
 
       <section id="results-section" class="card hidden">

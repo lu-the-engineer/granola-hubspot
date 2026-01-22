@@ -42,7 +42,7 @@ uploadRouter.post('/upload', async (req, res) => {
 
     if (result.success) {
       logger.info('Upload processing complete', {
-        contactId: result.hubspot.contact?.id,
+        contactCount: result.hubspot.contacts?.length,
         dealId: result.hubspot.deal?.id,
       });
       res.json(result);

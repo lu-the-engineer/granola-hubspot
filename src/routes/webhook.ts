@@ -32,7 +32,7 @@ webhookRouter.post('/', async (req, res) => {
 
     if (result.success) {
       logger.info('Webhook processing complete', {
-        contactId: result.hubspot.contact?.id,
+        contactCount: result.hubspot.contacts?.length,
         dealId: result.hubspot.deal?.id,
       });
       res.json(result);
