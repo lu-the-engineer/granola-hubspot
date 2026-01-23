@@ -157,13 +157,17 @@ function renderMeetingsList(meetings) {
       : '';
 
     const durationText = meeting.duration ? `${meeting.duration} min` : '';
+    const noTranscriptWarning = meeting.hasTranscript === false
+      ? `<div class="no-transcript-badge" title="Transcript not in local cache. Open in Granola to sync.">No transcript</div>`
+      : '';
 
     return `
-      <div class="meeting-card" data-meeting-id="${meeting.id}">
+      <div class="meeting-card ${meeting.hasTranscript === false ? 'no-transcript' : ''}" data-meeting-id="${meeting.id}">
         <div class="meeting-card-header">
           <h3 class="meeting-title">${escapeHtml(meeting.title)}</h3>
           <span class="meeting-date">${formattedDate}</span>
         </div>
+        ${noTranscriptWarning}
         <div class="meeting-meta">
           ${durationText ? `<span>${durationText}</span>` : ''}
           <span>${meeting.participantCount} participant${meeting.participantCount !== 1 ? 's' : ''}</span>
@@ -272,8 +276,16 @@ function renderConfirmation(meeting) {
     `;
   } else {
     html += `
-      <div class="error-box" style="margin-top: 16px;">
-        <p>No transcript available for this meeting</p>
+      <div class="no-transcript-warning" style="background: #fef2f2; border: 1px solid #fca5a5; border-radius: 6px; padding: 16px; margin-top: 16px;">
+        <p style="color: #991b1b; margin: 0 0 12px 0; font-weight: 600;">Transcript not available locally</p>
+        <p style="color: #7f1d1d; margin: 0 0 12px 0; font-size: 14px;">
+          Granola only keeps recent transcripts in local cache. Older transcripts need to be synced or pasted manually.
+        </p>
+        <p style="color: #7f1d1d; margin: 0; font-size: 14px;"><strong>To fix this:</strong></p>
+        <ul style="color: #7f1d1d; margin: 8px 0 0 20px; font-size: 14px; list-style: disc;">
+          <li>Open this meeting in the Granola app to re-sync the transcript</li>
+          <li>Or use <strong>Paste Transcript</strong> mode and copy the transcript from Granola's web interface</li>
+        </ul>
       </div>
     `;
   }
@@ -284,7 +296,7 @@ function renderConfirmation(meeting) {
 // Process selected meeting
 confirmProcessBtn.addEventListener('click', async () => {
   if (!selectedMeeting || !selectedMeeting.transcript) {
-    alert('No transcript available for this meeting');
+    alert('No transcript available. Please open this meeting in the Granola app to sync the transcript, or use Paste Transcript mode.');
     return;
   }
 

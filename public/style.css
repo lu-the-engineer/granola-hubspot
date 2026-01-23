@@ -483,3 +483,26 @@ footer {
   border-radius: 6px;
   border: 1px solid #e5e7eb;
 }
+
+/* No Transcript Warning */
+.meeting-card.no-transcript {
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
+.meeting-card.no-transcript:hover {
+  border-color: #f59e0b;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
+}
+
+.no-transcript-badge {
+  display: inline-block;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  border: 1px solid #fcd34d;
+}

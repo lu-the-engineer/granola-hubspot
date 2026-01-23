@@ -11,6 +11,7 @@ export interface GranolaMeeting {
   participants: GranolaParticipant[];
   transcript?: string;
   summary?: string;
+  hasTranscript?: boolean; // Whether transcript is available in local cache
 }
 
 export interface GranolaParticipant {
@@ -262,11 +263,14 @@ export class GranolaService {
       duration = Math.round((end.getTime() - start.getTime()) / 60000); // minutes
     }
 
+    // Check if transcript exists in cache
+    const transcriptEntries = state.transcripts?.[doc.id];
+    const hasTranscript = !!(transcriptEntries && transcriptEntries.length > 0);
+
     // Get transcript if requested
     let transcript: string | undefined;
-    if (includeTranscript && state.transcripts?.[doc.id]) {
-      const entries = state.transcripts[doc.id];
-      transcript = entries
+    if (includeTranscript && hasTranscript) {
+      transcript = transcriptEntries
         .filter(e => e.text && e.text.trim())
         .map(e => {
           const speaker = e.speaker ? `${e.speaker}: ` : '';
@@ -286,6 +290,7 @@ export class GranolaService {
       participants,
       transcript,
       summary: doc.notes_markdown || doc.notes_plain,
+      hasTranscript,
     };
   }
 

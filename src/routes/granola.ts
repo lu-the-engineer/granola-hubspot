@@ -28,6 +28,7 @@ granolaRouter.get('/meetings', async (req: Request, res: Response) => {
         email: p.email,
       })),
       hasSummary: !!m.summary,
+      hasTranscript: m.hasTranscript ?? true, // Default to true for API results
     }));
 
     res.json({ meetings: meetingList });
