@@ -10,6 +10,7 @@ import { healthRouter } from './routes/health.js';
 import { webhookRouter } from './routes/webhook.js';
 import { uploadRouter } from './routes/upload.js';
 import { granolaRouter } from './routes/granola.js';
+import { creatorRouter } from './routes/creator.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,6 +41,7 @@ app.use('/health', healthRouter);
 app.use('/webhook', webhookAuthMiddleware, webhookRouter);
 app.use('/api', authMiddleware, uploadRouter);
 app.use('/api/granola', authMiddleware, granolaRouter);
+app.use('/api/creator', authMiddleware, creatorRouter);
 
 // Serve frontend for root
 app.get('/', (_req, res) => {

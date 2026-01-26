@@ -8,8 +8,9 @@ import {
   buildNoteFromExtraction,
   getContactUrl,
 } from './hubspot.js';
+import { lookupCreatorSocials } from './socialLookup.js';
 import { logger } from '../utils/logger.js';
-import type { TranscriptPayload, ProcessingResult, ExtractedData, ExtractedContact, HubSpotContactResult } from '../types/index.js';
+import type { TranscriptPayload, ProcessingResult, ExtractedData, ExtractedContact, HubSpotContactResult, SocialProfile } from '../types/index.js';
 
 async function syncContact(contact: ExtractedContact): Promise<HubSpotContactResult | null> {
   if (!contact.email && !contact.firstName && !contact.lastName) {
@@ -104,8 +105,20 @@ export async function processTranscript(payload: TranscriptPayload): Promise<Pro
     }
   }
 
-  // Step 3: Add call note to all contacts
-  const noteBody = buildNoteFromExtraction(extracted);
+  // Step 3: Look up social profiles if creator name provided
+  let socialProfiles: SocialProfile[] = [];
+  if (payload.creatorName) {
+    try {
+      const lookupResult = await lookupCreatorSocials(payload.creatorName);
+      socialProfiles = lookupResult.profiles;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown lookup error';
+      logger.warn('Social lookup failed', { error: message, creatorName: payload.creatorName });
+    }
+  }
+
+  // Step 4: Add call note to all contacts (includes summary, transcript, and social profiles)
+  const noteBody = buildNoteFromExtraction(extracted, payload.transcript, socialProfiles, payload.creatorName);
 
   for (const contactId of contactIds) {
     try {

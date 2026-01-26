@@ -1,6 +1,6 @@
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
-import type { ExtractedData, ExtractedContact, HubSpotContact, HubSpotDeal } from '../types/index.js';
+import type { ExtractedData, ExtractedContact, HubSpotContact, HubSpotDeal, SocialProfile } from '../types/index.js';
 
 const HUBSPOT_API_BASE = 'https://api.hubapi.com';
 
@@ -269,7 +269,12 @@ export async function addNoteToDeal(
   logger.info('Added note to deal', { dealId });
 }
 
-export function buildNoteFromExtraction(extracted: ExtractedData): string {
+export function buildNoteFromExtraction(
+  extracted: ExtractedData,
+  transcript?: string,
+  socialProfiles?: SocialProfile[],
+  creatorName?: string
+): string {
   const parts: string[] = [];
 
   // Header
@@ -301,6 +306,53 @@ export function buildNoteFromExtraction(extracted: ExtractedData): string {
   // Sentiment
   parts.push('<br>');
   parts.push(`<b>Sentiment:</b> ${extracted.sentiment}`);
+
+  // Full Transcript
+  if (transcript) {
+    parts.push('<br><br>');
+    parts.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━<br>');
+    parts.push('📝 <b>Full Transcript:</b><br><br>');
+
+    // Clean up and format transcript
+    const formattedTranscript = transcript
+      // Escape HTML first
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      // Remove excessive blank lines (3+ newlines become 2)
+      .replace(/\n{3,}/g, '\n\n')
+      // Convert common bullet patterns to proper bullets
+      .replace(/^[-•]\s*/gm, '• ')
+      .replace(/^\*\s+/gm, '• ')
+      // Convert lines that look like headers (all caps or ending with colon) to bold
+      .replace(/^([A-Z][A-Z\s&]+)$/gm, '<b>$1</b>')
+      .replace(/^([A-Za-z][A-Za-z\s&]+):$/gm, '<b>$1:</b>')
+      // Trim leading/trailing whitespace from each line
+      .split('\n')
+      .map(line => line.trim())
+      .join('\n')
+      // Remove empty lines at start/end
+      .trim()
+      // Convert newlines to HTML breaks
+      .replace(/\n/g, '<br>');
+
+    parts.push(formattedTranscript);
+  }
+
+  // Social Profiles (after transcript)
+  if (creatorName) {
+    parts.push('<br><br>');
+    parts.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━<br>');
+    parts.push(`🔗 <b>Social Profiles for "${creatorName}"</b><br><br>`);
+
+    if (socialProfiles && socialProfiles.length > 0) {
+      socialProfiles.forEach(profile => {
+        parts.push(`• <b>${profile.platform}:</b> <a href="${profile.url}">${profile.url}</a><br>`);
+      });
+    } else {
+      parts.push('<i>No verified social profiles found. Manual search may be required.</i><br>');
+    }
+  }
 
   return parts.join('');
 }

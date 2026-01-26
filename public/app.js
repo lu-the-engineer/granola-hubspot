@@ -29,6 +29,8 @@ const confirmBackBtn = document.getElementById('confirm-back-btn');
 
 let currentPassword = '';
 let selectedMeeting = null;
+let lastPastedTranscript = null; // Store transcript from paste mode
+let lastCreatorProfiles = null; // Store social profiles from lookup
 
 // Helper to show/hide sections
 function showSection(section) {
@@ -266,6 +268,15 @@ function renderConfirmation(meeting) {
     `;
   }
 
+  // Creator name field (required)
+  html += `
+    <div class="creator-name-section" style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 6px; padding: 12px; margin-bottom: 12px;">
+      <label for="granola-creator-name" style="display: block; font-weight: 600; margin-bottom: 6px; color: #0369a1;">Creator/Brand Name *</label>
+      <input type="text" id="granola-creator-name" class="creator-name-input" placeholder="e.g., MKBHD, Ludwig, Harry Mack" required style="width: 100%; padding: 10px; border: 1px solid #7dd3fc; border-radius: 4px; font-size: 14px;">
+      <small style="color: #0369a1; display: block; margin-top: 6px;">Required - used to find social profiles (YouTube, Instagram, TikTok, etc.)</small>
+    </div>
+  `;
+
   if (meeting.transcript) {
     const previewText = meeting.transcript.substring(0, 500) + (meeting.transcript.length > 500 ? '...' : '');
     html += `
@@ -300,6 +311,15 @@ confirmProcessBtn.addEventListener('click', async () => {
     return;
   }
 
+  // Require creator name
+  const creatorNameInput = document.getElementById('granola-creator-name');
+  const creatorName = creatorNameInput?.value?.trim();
+  if (!creatorName) {
+    alert('Please enter a creator/brand name for social lookup');
+    creatorNameInput?.focus();
+    return;
+  }
+
   // Get emails from participants or manual input
   let attendeeEmails = selectedMeeting.participants
     .filter(p => p.email)
@@ -324,11 +344,20 @@ confirmProcessBtn.addEventListener('click', async () => {
     title: selectedMeeting.title,
     date: selectedMeeting.date,
     attendees: attendeeEmails.join(', '),
+    creatorName,
   };
 
   showSection(loadingSection);
 
   try {
+    // First, look up social profiles
+    const lookupResponse = await fetch(`/api/creator/lookup?name=${encodeURIComponent(creatorName)}`, {
+      headers: { 'X-Password': currentPassword },
+    });
+    const lookupResult = await lookupResponse.json();
+    lastCreatorProfiles = lookupResult;
+
+    // Then process transcript
     const response = await fetch('/api/upload', {
       method: 'POST',
       headers: {
@@ -357,16 +386,37 @@ uploadForm.addEventListener('submit', async (e) => {
     return;
   }
 
+  // Require creator name
+  const creatorNameInput = document.getElementById('creator-name');
+  const creatorName = creatorNameInput?.value?.trim();
+  if (!creatorName) {
+    alert('Please enter a creator/brand name for social lookup');
+    creatorNameInput?.focus();
+    return;
+  }
+
+  // Store the pasted transcript for later use in results
+  lastPastedTranscript = transcript;
+
   const payload = {
     transcript,
     title: document.getElementById('title').value.trim() || undefined,
     date: document.getElementById('date').value || undefined,
     attendees: document.getElementById('attendees').value.trim() || undefined,
+    creatorName,
   };
 
   showSection(loadingSection);
 
   try {
+    // First, look up social profiles
+    const lookupResponse = await fetch(`/api/creator/lookup?name=${encodeURIComponent(creatorName)}`, {
+      headers: { 'X-Password': currentPassword },
+    });
+    const lookupResult = await lookupResponse.json();
+    lastCreatorProfiles = lookupResult;
+
+    // Then process transcript
     const response = await fetch('/api/upload', {
       method: 'POST',
       headers: {
@@ -452,6 +502,37 @@ function renderResults(result) {
       </div>
     </div>
   `;
+
+  // Social Profiles (from creator lookup)
+  if (lastCreatorProfiles && lastCreatorProfiles.creatorName) {
+    html += `<div class="result-section">`;
+    html += `<h4>Social Profiles for "${escapeHtml(lastCreatorProfiles.creatorName)}"</h4>`;
+    html += `<div class="result-item">`;
+
+    if (lastCreatorProfiles.profiles && lastCreatorProfiles.profiles.length > 0) {
+      html += `
+        <div class="social-profiles-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px;">
+          ${lastCreatorProfiles.profiles.map(p => `
+            <a href="${escapeHtml(p.url)}" target="_blank" class="social-profile-link" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; text-decoration: none; color: #334155; transition: background 0.2s;">
+              <span style="font-weight: 500;">${escapeHtml(p.platform)}</span>
+              <span style="color: #64748b; font-size: 12px;">&#8599;</span>
+            </a>
+          `).join('')}
+        </div>
+        <p style="margin-top: 12px; font-size: 13px; color: #6b7280;">
+          These profiles were found via search. Please verify before using.
+        </p>
+      `;
+    } else {
+      html += `
+        <p style="color: #6b7280; font-style: italic;">
+          No verified social profiles found for this creator. You may need to search manually.
+        </p>
+      `;
+    }
+
+    html += `</div></div>`;
+  }
 
   // Contacts Info (now supports multiple)
   const contacts = extracted.contacts || [];
@@ -596,6 +677,9 @@ function renderResults(result) {
         <button class="btn btn-secondary" id="create-trello-artwork-btn">
           Trello: Artwork
         </button>
+        <button class="btn btn-secondary" id="create-email-draft-btn">
+          Email Draft
+        </button>
       </div>
     </div>
   `;
@@ -603,13 +687,27 @@ function renderResults(result) {
   resultsContent.innerHTML = html;
 
   // Store extracted data for ticket creation
+  // Use transcript from Granola mode OR paste mode
+  const transcriptText = selectedMeeting?.transcript || lastPastedTranscript || '';
+
+  // Merge social profiles from lookup into creativeInfo
+  const socialProfileUrls = lastCreatorProfiles?.profiles?.map(p => `${p.platform}: ${p.url}`) || [];
+  const mergedCreativeInfo = {
+    ...(extracted.creativeInfo || {}),
+    socialLinks: [...(extracted.creativeInfo?.socialLinks || []), ...socialProfileUrls],
+  };
+
   const ticketData = {
     title: extracted.meetingTitle || 'Meeting Follow-up',
     summary: extracted.callSummary || '',
     actionItems: extracted.actionItems || [],
     nextSteps: extracted.nextSteps || [],
     contacts: extracted.contacts || [],
-    transcript: selectedMeeting?.transcript || '',
+    transcript: transcriptText,
+    manufacturing: extracted.manufacturing || {},
+    creativeInfo: mergedCreativeInfo,
+    creatorName: lastCreatorProfiles?.creatorName || '',
+    socialProfiles: lastCreatorProfiles?.profiles || [],
   };
 
   // Attach event listeners after rendering
@@ -617,14 +715,18 @@ function renderResults(result) {
   document.getElementById('create-jira-btn').addEventListener('click', () => openJiraTicket(ticketData));
   document.getElementById('create-trello-themes-btn').addEventListener('click', () => openTrelloCard(ticketData, 'themes'));
   document.getElementById('create-trello-artwork-btn').addEventListener('click', () => openTrelloCard(ticketData, 'artwork'));
+  document.getElementById('create-email-draft-btn').addEventListener('click', () => openEmailDraft(ticketData));
 }
 
 function resetToMode() {
   selectedMeeting = null;
+  lastPastedTranscript = null;
+  lastCreatorProfiles = null;
   document.getElementById('transcript').value = '';
   document.getElementById('title').value = '';
   document.getElementById('date').value = '';
   document.getElementById('attendees').value = '';
+  document.getElementById('creator-name').value = '';
   showSection(modeSection);
 }
 
@@ -640,7 +742,7 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-// Build ticket description from extracted data
+// Build ticket description from extracted data (generic)
 function buildTicketDescription(data) {
   let desc = '';
 
@@ -668,10 +770,161 @@ function buildTicketDescription(data) {
   return desc.trim();
 }
 
-// Open Jira ticket creation page
+// Build Jira description (manufacturing & product focused)
+function buildJiraDescription(data) {
+  let desc = '';
+
+  if (data.summary) {
+    desc += `**Summary:**\n${data.summary}\n\n`;
+  }
+
+  if (data.contacts && data.contacts.length > 0) {
+    const contactNames = data.contacts
+      .map(c => [c.firstName, c.lastName].filter(Boolean).join(' ') || c.email)
+      .filter(Boolean);
+    if (contactNames.length > 0) {
+      desc += `**Contacts:** ${contactNames.join(', ')}\n\n`;
+    }
+  }
+
+  // Manufacturing-specific info
+  const mfg = data.manufacturing;
+  if (mfg) {
+    if (mfg.products && mfg.products.length > 0) {
+      desc += `**Products:**\n${mfg.products.map(p => `- ${p}`).join('\n')}\n\n`;
+    }
+    if (mfg.quantities) {
+      desc += `**Quantities:** ${mfg.quantities}\n\n`;
+    }
+    if (mfg.materials && mfg.materials.length > 0) {
+      desc += `**Materials/Packaging:**\n${mfg.materials.map(m => `- ${m}`).join('\n')}\n\n`;
+    }
+    if (mfg.timeline) {
+      desc += `**Timeline:** ${mfg.timeline}\n\n`;
+    }
+    if (mfg.requirements && mfg.requirements.length > 0) {
+      desc += `**Special Requirements:**\n${mfg.requirements.map(r => `- ${r}`).join('\n')}\n\n`;
+    }
+    if (mfg.concerns && mfg.concerns.length > 0) {
+      desc += `**Concerns/Questions:**\n${mfg.concerns.map(c => `- ${c}`).join('\n')}\n\n`;
+    }
+  }
+
+  if (data.nextSteps && data.nextSteps.length > 0) {
+    desc += `**Next Steps:**\n${data.nextSteps.map(step => `- ${step}`).join('\n')}\n\n`;
+  }
+
+  return desc.trim();
+}
+
+// Build Trello Themes description (themes & inspiration focused)
+function buildThemesDescription(data) {
+  let desc = '';
+
+  if (data.creatorName) {
+    desc += `**Creator:** ${data.creatorName}\n\n`;
+  }
+
+  if (data.summary) {
+    desc += `**Summary:**\n${data.summary}\n\n`;
+  }
+
+  if (data.contacts && data.contacts.length > 0) {
+    const contactNames = data.contacts
+      .map(c => [c.firstName, c.lastName].filter(Boolean).join(' ') || c.email)
+      .filter(Boolean);
+    if (contactNames.length > 0) {
+      desc += `**Contact:** ${contactNames.join(', ')}\n\n`;
+    }
+  }
+
+  // Social profiles from lookup (formatted nicely)
+  if (data.socialProfiles && data.socialProfiles.length > 0) {
+    desc += `**Social Profiles:**\n${data.socialProfiles.map(p => `- ${p.platform}: ${p.url}`).join('\n')}\n\n`;
+  }
+
+  // Creative/Design info
+  const creative = data.creativeInfo;
+  if (creative) {
+    if (creative.themes && creative.themes.length > 0) {
+      desc += `**Themes/Aesthetics:**\n${creative.themes.map(t => `- ${t}`).join('\n')}\n\n`;
+    }
+    if (creative.inspiration && creative.inspiration.length > 0) {
+      desc += `**Inspiration:**\n${creative.inspiration.map(i => `- ${i}`).join('\n')}\n\n`;
+    }
+    if (creative.colors && creative.colors.length > 0) {
+      desc += `**Colors:** ${creative.colors.join(', ')}\n\n`;
+    }
+    if (creative.brandElements && creative.brandElements.length > 0) {
+      desc += `**Brand Elements:**\n${creative.brandElements.map(b => `- ${b}`).join('\n')}\n\n`;
+    }
+    if (creative.websiteLinks && creative.websiteLinks.length > 0) {
+      desc += `**Websites:**\n${creative.websiteLinks.map(w => `- ${w}`).join('\n')}\n\n`;
+    }
+  }
+
+  return desc.trim();
+}
+
+// Build Trello Artwork description (artwork & assets focused)
+function buildArtworkDescription(data) {
+  let desc = '';
+
+  if (data.creatorName) {
+    desc += `**Creator:** ${data.creatorName}\n\n`;
+  }
+
+  if (data.summary) {
+    desc += `**Summary:**\n${data.summary}\n\n`;
+  }
+
+  if (data.contacts && data.contacts.length > 0) {
+    const contactNames = data.contacts
+      .map(c => [c.firstName, c.lastName].filter(Boolean).join(' ') || c.email)
+      .filter(Boolean);
+    if (contactNames.length > 0) {
+      desc += `**Contact:** ${contactNames.join(', ')}\n\n`;
+    }
+  }
+
+  // Social profiles from lookup (formatted nicely)
+  if (data.socialProfiles && data.socialProfiles.length > 0) {
+    desc += `**Social Profiles:**\n${data.socialProfiles.map(p => `- ${p.platform}: ${p.url}`).join('\n')}\n\n`;
+  }
+
+  // Creative/Design info - artwork focused
+  const creative = data.creativeInfo;
+  if (creative) {
+    if (creative.brandElements && creative.brandElements.length > 0) {
+      desc += `**Existing Assets/Designs:**\n${creative.brandElements.map(b => `- ${b}`).join('\n')}\n\n`;
+    }
+    if (creative.inspiration && creative.inspiration.length > 0) {
+      desc += `**Inspiration/References:**\n${creative.inspiration.map(i => `- ${i}`).join('\n')}\n\n`;
+    }
+    if (creative.themes && creative.themes.length > 0) {
+      desc += `**Style Direction:**\n${creative.themes.map(t => `- ${t}`).join('\n')}\n\n`;
+    }
+    if (creative.colors && creative.colors.length > 0) {
+      desc += `**Color Palette:** ${creative.colors.join(', ')}\n\n`;
+    }
+    if (creative.websiteLinks && creative.websiteLinks.length > 0) {
+      desc += `**Websites:**\n${creative.websiteLinks.map(w => `- ${w}`).join('\n')}\n\n`;
+    }
+  }
+
+  // Products from manufacturing (for artwork context)
+  const mfg = data.manufacturing;
+  if (mfg && mfg.products && mfg.products.length > 0) {
+    desc += `**Products to Design For:**\n${mfg.products.map(p => `- ${p}`).join('\n')}\n\n`;
+  }
+
+  return desc.trim();
+}
+
+// Open Jira ticket creation page (manufacturing focused)
 function openJiraTicket(data) {
   const summary = encodeURIComponent(data.title);
-  const description = encodeURIComponent(buildTicketDescription(data));
+  const description = encodeURIComponent(buildJiraDescription(data));
 
   const url = `https://popshop.atlassian.net/secure/CreateIssueDetails!init.jspa?pid=10122&issuetype=10229&summary=${summary}&description=${description}`;
 
@@ -689,10 +942,211 @@ function openTrelloCard(data, board) {
   if (!boardId) return;
 
   const name = encodeURIComponent(data.title);
-  const desc = encodeURIComponent(buildTicketDescription(data));
+
+  // Use specialized description based on board type
+  const desc = board === 'themes'
+    ? encodeURIComponent(buildThemesDescription(data))
+    : encodeURIComponent(buildArtworkDescription(data));
 
   // Trello add card URL
   const url = `https://trello.com/add-card?name=${name}&desc=${desc}&idBoard=${boardId}&mode=popup`;
 
   window.open(url, '_blank');
+}
+
+// Open email draft popup
+function openEmailDraft(data) {
+  // Build next steps as list items
+  const nextStepsHtml = data.nextSteps && data.nextSteps.length > 0
+    ? data.nextSteps.map(step => `<li>${escapeHtml(step)}</li>`).join('')
+    : '<li>[Enter next steps]</li>';
+
+  // Demo sites with hyperlinks for Gmail
+  const demoSites = [
+    { name: 'MKBHD', url: 'https://mkbhd.com/en-usd' },
+    { name: 'Huge* If True', url: 'https://hugeiftrue.com/' },
+    { name: 'NY Magazine', url: 'https://shop.nymag.com/' },
+    { name: 'Acquired Podcast', url: 'https://shop.acquired.fm/' },
+    { name: 'Ludwig', url: 'https://ludwig.gg/' },
+    { name: 'Harry Mack', url: 'https://shop.harrymackofficial.com/' },
+    { name: 'Coffeezilla', url: 'https://coffeezilla.store/' },
+  ];
+
+  const demoSitesHtml = demoSites
+    .map(site => `<li><a href="${site.url}">${site.name}</a></li>`)
+    .join('');
+
+  const emailHtml = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+      <p>Hey there,</p>
+
+      <p>Great to chat earlier. I'm looping in <span style="background: #fef3c7; padding: 2px 6px; border-radius: 3px;">[EMAIL PLACEHOLDER]</span> from our team as well.</p>
+
+      <p><strong>Next Steps:</strong></p>
+      <ul style="margin: 0 0 16px 0; padding-left: 20px;">
+        ${nextStepsHtml}
+      </ul>
+
+      <p><strong>Demo Sites:</strong><br>
+      Here are some of the storefronts that I demoed on the call:</p>
+      <ul style="margin: 0 0 16px 0; padding-left: 20px;">
+        ${demoSitesHtml}
+      </ul>
+
+      <p><strong>Fourthwall:</strong><br>
+      We offer:</p>
+      <ul style="margin: 0 0 16px 0; padding-left: 20px;">
+        <li>Fully managed storefronts from supply chain to customer support to sales tax</li>
+        <li>We can also connect with your 3PL or you can use ours (if you wanted to manage book shipments too)</li>
+        <li>Dedicated account management to help you succeed on the platform</li>
+        <li>Native connections with all of your social selling channels (YouTube, IG, etc)</li>
+      </ul>
+
+      <p>Let me know if I can share anything else that would be helpful.</p>
+
+      <p>Best,<br>
+      <span style="background: #fef3c7; padding: 2px 6px; border-radius: 3px;">[NAME PLACEHOLDER]</span></p>
+    </div>
+  `;
+
+  // Create modal overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'email-draft-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  `;
+
+  // Create modal content
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    max-width: 700px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  `;
+
+  // Build attendee emails list
+  const attendeeEmails = data.contacts && data.contacts.length > 0
+    ? data.contacts.map(c => c.email).filter(Boolean).join(', ')
+    : '';
+
+  modal.innerHTML = `
+    <div style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+      <h3 style="margin: 0; font-size: 18px; color: #1f2937;">Email Draft</h3>
+      <button id="close-email-modal" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280; padding: 0; line-height: 1;">&times;</button>
+    </div>
+    <div style="padding: 20px; overflow-y: auto; flex: 1;">
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px;">Recipients (To:)</label>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input type="text" id="attendee-emails" value="${escapeHtml(attendeeEmails)}" readonly
+            style="flex: 1; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 6px; background: #f9fafb; font-size: 14px; color: #374151;">
+          <button id="copy-emails-btn" class="btn btn-secondary" style="white-space: nowrap;">Copy</button>
+        </div>
+      </div>
+      <div id="email-content" style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; background: #fafafa;">
+        ${emailHtml}
+      </div>
+      <p style="margin-top: 12px; font-size: 13px; color: #6b7280;">
+        Tip: Select all (Cmd+A), copy (Cmd+C), and paste directly into Gmail compose.
+      </p>
+    </div>
+    <div style="padding: 16px 20px; border-top: 1px solid #e5e7eb; display: flex; gap: 12px; justify-content: flex-end;">
+      <button id="copy-email-btn" class="btn btn-primary">Copy Email Body</button>
+      <button id="close-email-btn" class="btn btn-secondary">Close</button>
+    </div>
+  `;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  // Close handlers
+  const closeModal = () => {
+    overlay.remove();
+  };
+
+  document.getElementById('close-email-modal').addEventListener('click', closeModal);
+  document.getElementById('close-email-btn').addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeModal();
+  });
+
+  // Copy emails handler
+  document.getElementById('copy-emails-btn').addEventListener('click', async () => {
+    const emailsInput = document.getElementById('attendee-emails');
+    const emails = emailsInput.value;
+
+    if (!emails) {
+      const copyBtn = document.getElementById('copy-emails-btn');
+      copyBtn.textContent = 'No emails';
+      setTimeout(() => {
+        copyBtn.textContent = 'Copy';
+      }, 1500);
+      return;
+    }
+
+    await navigator.clipboard.writeText(emails);
+
+    const copyBtn = document.getElementById('copy-emails-btn');
+    copyBtn.textContent = 'Copied!';
+    copyBtn.style.background = '#059669';
+    copyBtn.style.color = 'white';
+    copyBtn.style.borderColor = '#059669';
+    setTimeout(() => {
+      copyBtn.textContent = 'Copy';
+      copyBtn.style.background = '';
+      copyBtn.style.color = '';
+      copyBtn.style.borderColor = '';
+    }, 2000);
+  });
+
+  // Copy email body handler
+  document.getElementById('copy-email-btn').addEventListener('click', async () => {
+    const emailContent = document.getElementById('email-content');
+
+    try {
+      // Copy as HTML (for Gmail rich text paste)
+      const htmlBlob = new Blob([emailContent.innerHTML], { type: 'text/html' });
+      const textBlob = new Blob([emailContent.innerText], { type: 'text/plain' });
+
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': htmlBlob,
+          'text/plain': textBlob,
+        })
+      ]);
+
+      const copyBtn = document.getElementById('copy-email-btn');
+      copyBtn.textContent = 'Copied!';
+      copyBtn.style.background = '#059669';
+      setTimeout(() => {
+        copyBtn.textContent = 'Copy to Clipboard';
+        copyBtn.style.background = '';
+      }, 2000);
+    } catch (err) {
+      // Fallback to text copy
+      const text = emailContent.innerText;
+      await navigator.clipboard.writeText(text);
+
+      const copyBtn = document.getElementById('copy-email-btn');
+      copyBtn.textContent = 'Copied (text only)';
+      setTimeout(() => {
+        copyBtn.textContent = 'Copy to Clipboard';
+      }, 2000);
+    }
+  });
 }

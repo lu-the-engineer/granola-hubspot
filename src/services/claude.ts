@@ -16,7 +16,7 @@ function buildExtractionPrompt(attendeeEmails: string[]): string {
 Analyze the provided transcript and extract the following information in JSON format.
 
 IMPORTANT: Only extract information that is explicitly mentioned or strongly implied in the transcript.
-Use null for fields where information is not available.
+Use null for fields where information is not available. Use empty arrays [] when no items found.
 ${emailList}
 
 Extract:
@@ -26,6 +26,8 @@ Extract:
 4. Action items mentioned during the call
 5. Next steps discussed
 6. Overall sentiment of the call (positive, neutral, negative)
+7. Manufacturing & Product info: products discussed (t-shirts, hoodies, mugs, books, etc.), quantities, materials/fabrics/packaging, production timeline, special requirements, manufacturing concerns
+8. Creative/Design info: visual themes, aesthetic directions, inspiration sources, color preferences, brand elements (logos, existing designs), social media links/handles, website URLs
 
 For deal stage, use one of: discovery, qualification, proposal, negotiation, closed_won, closed_lost
 Only set a stage if there's clear indication from the conversation.
@@ -51,7 +53,23 @@ Respond ONLY with valid JSON matching this schema:
   "callSummary": string,
   "actionItems": string[],
   "nextSteps": string[],
-  "sentiment": "positive" | "neutral" | "negative"
+  "sentiment": "positive" | "neutral" | "negative",
+  "manufacturing": {
+    "products": string[],
+    "quantities": string | null,
+    "materials": string[],
+    "timeline": string | null,
+    "requirements": string[],
+    "concerns": string[]
+  },
+  "creativeInfo": {
+    "themes": string[],
+    "inspiration": string[],
+    "colors": string[],
+    "brandElements": string[],
+    "socialLinks": string[],
+    "websiteLinks": string[]
+  }
 }`;
 }
 

@@ -10,6 +10,7 @@ const uploadPayloadSchema = z.object({
   title: z.string().optional(),
   date: z.string().optional(),
   attendees: z.string().optional(), // Comma-separated for form input
+  creatorName: z.string().optional(), // Creator/brand name for social lookup
 });
 
 uploadRouter.post('/upload', async (req, res) => {
@@ -38,6 +39,7 @@ uploadRouter.post('/upload', async (req, res) => {
       title: validation.data.title,
       date: validation.data.date,
       attendees,
+      creatorName: validation.data.creatorName,
     });
 
     if (result.success) {

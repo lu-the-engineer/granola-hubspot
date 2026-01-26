@@ -24,6 +24,23 @@ export interface ExtractedData {
   sentiment: 'positive' | 'neutral' | 'negative';
   meetingDate?: string;
   meetingTitle?: string;
+  // Specialized extraction for follow-up tasks
+  manufacturing?: {
+    products: string[];           // Products discussed (merch types, items)
+    quantities?: string;          // Volume/quantity discussed
+    materials?: string[];         // Materials, fabrics, packaging mentioned
+    timeline?: string;            // Production timeline discussed
+    requirements?: string[];      // Special requirements, customizations
+    concerns?: string[];          // Manufacturing concerns or questions
+  };
+  creativeInfo?: {
+    themes?: string[];            // Visual themes, aesthetics, style directions
+    inspiration?: string[];       // Inspiration sources, references, mood
+    colors?: string[];            // Color preferences mentioned
+    brandElements?: string[];     // Logo, brand assets, existing designs
+    socialLinks?: string[];       // Social media URLs, handles mentioned
+    websiteLinks?: string[];      // Website URLs mentioned
+  };
 }
 
 export interface TranscriptPayload {
@@ -31,6 +48,12 @@ export interface TranscriptPayload {
   title?: string;
   date?: string;
   attendees?: string[];  // Now expects emails
+  creatorName?: string;  // Creator/brand name for social lookup
+}
+
+export interface SocialProfile {
+  platform: string;
+  url: string;
 }
 
 export interface HubSpotContact {
